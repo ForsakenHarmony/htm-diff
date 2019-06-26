@@ -1,9 +1,9 @@
 {
   "name": "htm-diff",
-  "version": "0.1.0-pre.1",
-  "main": "dist/es/lib/index.js",
-  "module": "dist/es/lib/index.js",
-  "types": "dist/es/lib/index.d.ts",
+  "version": "0.1.0-pre.2",
+  "main": "build/es/lib/index.js",
+  "module": "build/es/lib/index.js",
+  "types": "build/es/lib/index.d.ts",
   "license": "MIT",
   "scripts": {
     "dev": "parcel ./src/index.html",
