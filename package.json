@@ -1,6 +1,6 @@
 {
   "name": "htm-diff",
-  "version": "0.1.0-pre.0",
+  "version": "0.1.0-pre.1",
   "main": "dist/es/lib/index.js",
   "module": "dist/es/lib/index.js",
   "types": "dist/es/lib/index.d.ts",
