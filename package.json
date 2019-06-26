@@ -1,15 +1,23 @@
 {
   "name": "htm-diff",
-  "version": "1.0.0",
-  "main": "src/index.ts",
+  "version": "0.1.0-pre.0",
+  "main": "dist/es/lib/index.js",
+  "module": "dist/es/lib/index.js",
+  "types": "dist/es/lib/index.d.ts",
   "license": "MIT",
   "scripts": {
     "dev": "parcel ./src/index.html",
-    "build": "parcel build ./src/index.html"
+    "build": "parcel build ./src/index.html",
+    "prettier": "prettier --write ./src/**/*",
+    "build:lib": "tsc"
   },
   "devDependencies": {
     "parcel": "^1.12.3",
     "prettier": "^1.18.2",
     "typescript": "^3.5.2"
-  }
+  },
+  "files": [
+    "src",
+    "build"
+  ]
 }
