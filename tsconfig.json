@@ -3,10 +3,10 @@
     "moduleResolution": "node",
 
     "newLine": "lf",
-    "module": "commonjs",
+    "module": "esnext",
     "target": "es6",
     "sourceMap": true,
-    "outDir": "dist/es",
+    "outDir": "build/es",
     "declaration": true,
 
     "jsx": "react",

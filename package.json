@@ -19,5 +19,9 @@
   "files": [
     "src",
     "build"
-  ]
+  ],
+  "dependencies": {
+    "clsx": "^1.0.4",
+    "todomvc-app-css": "^2.2.0"
+  }
 }
