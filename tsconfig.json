@@ -24,6 +24,6 @@
     "paths": { "*": ["typings/*"] }
   },
   "include": ["src/**/*.ts", "typings/**/*.d.ts"],
-  "files": ["src/index.ts"]
+  "files": ["src/todomvc.ts"]
 }
 

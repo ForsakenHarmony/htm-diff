@@ -30,9 +30,16 @@ const evtMap: { [name: string]: (e: Event) => any } = {
   // input: (e: Event) => e.target.value
 };
 
-type ElementItemTypes = Node | State;
-type ElementItem = ElementItemTypes | ElementItemTypes[];
-type Elements = ElementItem | ElementItem[];
+const attrMap: { [name: string]: string } = {
+  class: "className"
+};
+
+type Elements = Node | State | ElementsArray;
+interface ElementsArray extends Array<Elements> {}
+
+// type ContentTypes = null | undefined | boolean | string | Template | Content[];
+type Content = null | undefined | boolean | string | Template | ContentArray;
+interface ContentArray extends Array<Content> {}
 
 function evaluate(
   template: Template,
@@ -76,20 +83,6 @@ function evaluate(
     props = null;
   };
 
-  function handleText(content: any, parent: Node): Elements {
-    if (content == null || content === false) {
-      return [];
-    } else if (Array.isArray(content)) {
-      // @ts-ignore
-      return content.map(c => handleText(c, parent));
-    } else if (isTemplate(content)) {
-      return content.exec(parent);
-    }
-    const newElement = document.createTextNode(content as string);
-    parent.appendChild(newElement);
-    return newElement;
-  }
-
   const match = ({
     [Operation.Element]: () => {
       const tag = arg();
@@ -124,12 +117,24 @@ function evaluate(
       const name = arg() as string;
       if (name.startsWith("@")) {
         const evt = name.slice(1);
-        // @ts-ignore
         const listeners = current.__listeners || (current.__listeners = {});
         const fn = arg();
-        listeners[evt] = (e: Event) => fn(evtMap[evt] ? evtMap[evt](e) : e);
-        current.addEventListener(evt, listeners[evt]);
-      } else current.setAttribute(name, arg() as string);
+        listeners[evt] = { fn, listen: evtHandler.bind(null, evt, fn) };
+        current.addEventListener(evt, listeners[evt].listen);
+        return;
+      }
+
+      const mapped = attrMap[name] || name;
+      const val = arg();
+      console.log("eval", current, mapped, val);
+
+      if (mapped === "style") {
+        Object.assign(
+          ((current as unknown) as ElementCSSInlineStyle).style,
+          val
+        );
+      } else if ((current as any)[mapped] !== val)
+        (current as any)[mapped] = val;
     }
   } as any) as Function[];
 
@@ -157,6 +162,74 @@ function isTemplate(tmpl: any): tmpl is Template {
   return typeof tmpl[tmplSym] === "function";
 }
 
+function destroy(element: Elements): void {
+  if (Array.isArray(element)) element.forEach(e => destroy(e));
+  else if (element instanceof Node || element instanceof Text)
+    element.parentNode!.removeChild(element);
+  else destroyState(element);
+}
+
+
+
+function handleText(content: any, parent: Node, element?: Elements): Elements {
+  if (content == null || content === false) {
+    element && destroy(element);
+    return [];
+  } else if (Array.isArray(content)) {
+    if (!element) return content.reduce((acc, c) => acc.concat(handleText(c, parent)), []);
+    // TODO: MAGIC SHIT
+
+    if (!Array.isArray(element)) element = [element];
+
+    // const keep = [];
+    // const newArr = [];
+
+    // const toRemove = [];
+
+    // let ci = 0, cl = content.length;
+    // let eo = 0, ei = 0, el = element.length;
+    //
+    // for (; ci < cl; ci++) {
+    //   let contentEl = content[ci];
+    //   for (ei = eo; ei < el; ei++) {
+    //
+    //   }
+    // }
+
+    console.log(element, content);
+    // destroy(toRemove);
+
+    destroy(element);
+    return content.reduce((acc, c) => acc.concat(handleText(c, parent)), []);
+    // return content.map(c => handleText(c, element));
+  } else if (isTemplate(content)) {
+    if (Array.isArray(element)) {
+      return handleText([content], parent, element);
+    } else if (!element) {
+      return content.exec(parent);
+    } else if (
+      element instanceof Node ||
+      element.template[tmplSym] !== content[tmplSym]
+    ) {
+      destroy(element);
+      return content.exec(parent);
+    } else {
+      return content.exec(parent, element);
+    }
+  } else if (element instanceof Text) {
+    (element as Text).data = content;
+    return element;
+  }
+  element && destroy(element);
+  const newElement = document.createTextNode(content as string);
+  parent.appendChild(newElement);
+  return newElement;
+}
+
+function evtHandler(evt: string, fn: (evt: Event) => void, e: Event) {
+  fn(evtMap[evt] ? evtMap[evt](e) : e);
+}
+
 function diff(
   _template: Template,
   diffOps: Operations[],
@@ -174,50 +247,6 @@ function diff(
   };
   // const el = () => elements[currentElement[currentElement.length - 1]];
 
-  function destroy(element: ElementItem | ElementItem[]): void {
-    if (Array.isArray(element)) element.forEach(e => destroy(e));
-    else if (element instanceof Node || element instanceof Text)
-      element.parentNode!.removeChild(element);
-    else destroyState(element);
-  }
-
-  function handleText(
-    content: any,
-    element: ElementItem | ElementItem[],
-    parent: Node
-  ): Elements {
-    if (content == null || content === false) {
-      destroy(element);
-      return [];
-    } else if (Array.isArray(content)) {
-      // TODO: MAGIC SHIT
-      destroy(element);
-
-      // @ts-ignore
-      return content.map(c => handleText(c, [], parent));
-      // return content.map(c => handleText(c, element));
-    } else if (isTemplate(content)) {
-      // // TODO: MAGIC SHIT
-      // destroy(element);
-      if (
-        Array.isArray(element) ||
-        element instanceof Node ||
-        element.template[tmplSym] !== content[tmplSym]
-      ) {
-        destroy(element);
-        return content.exec(parent);
-      } else {
-        return content.exec(parent, element);
-      }
-    } else if (element instanceof Text) {
-      (element as Text).data = content;
-      return element;
-    }
-    const newElement = document.createTextNode(content as string);
-    parent.appendChild(newElement);
-    return newElement;
-  }
-
   const match = ({
     // [Operation.Element]: () => {
     //   const tag = arg();
@@ -233,7 +262,7 @@ function diff(
     [Operation.Text]: () => {
       const idx = arg() as number;
       const [parent, element] = instance.elements[idx];
-      instance.elements[idx] = [parent, handleText(arg(), element, parent)];
+      instance.elements[idx] = [parent, handleText(arg(), parent, element)];
 
       // if (element instanceof Node) (element as Text).data = arg();
       //
@@ -253,17 +282,20 @@ function diff(
 
       if (name.startsWith("@")) {
         const evt = name.slice(1);
-        // @ts-ignore
-        const listeners = element.__listeners;
-        element.removeEventListener(evt, listeners[evt]);
         const fn = arg();
-        listeners[evt] = (e: Event) => fn(evtMap[evt] ? evtMap[evt](e) : e);
-        element.addEventListener(evt, listeners[evt]);
+        const listeners = element.__listeners || (element.__listeners = {});
+        if (listeners[evt].fn === fn) return;
+        element.removeEventListener(evt, listeners[evt].listen);
+        listeners[evt] = { fn, listen: evtHandler.bind(null, evt, fn) };
+        element.addEventListener(evt, listeners[evt].listen);
 
         return;
       }
 
-      (element as Element).setAttribute(name, arg() as string);
+      const mapped = attrMap[name] || name;
+      const val = arg();
+      console.log("diff", element, mapped, val);
+      if ((element as any)[mapped] !== val) (element as any)[mapped] = val;
     }
   } as any) as Function[];
 
@@ -289,7 +321,7 @@ const enum Mode {
 
 const tmplSym = Symbol("template");
 
-interface Template {
+export interface Template {
   exec(parent: Node, state?: State): State;
   [tmplSym]: Function;
 }
