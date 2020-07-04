@@ -1,6 +1,6 @@
 import "todomvc-app-css/index.css";
 // import "./styles.css";
-import { html, render, data, computed } from "./lib";
+import { html,  data, computed } from "./lib";
 import clsx from "clsx";
 import { subscribe } from "./lib/observed";
 
@@ -41,8 +41,6 @@ const TODO_FILTERS: { [key: string]: (todo: Todo) => boolean } = {
 	[SHOW_ACTIVE]: (todo) => !todo.completed,
 	[SHOW_COMPLETED]: (todo) => todo.completed,
 };
-
-const parent = document.querySelector("main")!;
 
 const TodoTextInput = (props: {
 	text?: string;
@@ -335,9 +333,3 @@ export const App = () => {
 		`;
 };
 
-// render(
-//   html`
-//     <${App} />
-//   `,
-//   parent
-// );
