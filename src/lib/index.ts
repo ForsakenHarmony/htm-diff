@@ -1,2 +1,2 @@
-export * from "./renderer";
+export * from "./renderer/index";
 export * from "./hooks";

@@ -1,8 +1,8 @@
-@import 'app.scss';
-@import 'animations.scss';
-@import 'avatar.scss';
-@import 'profile.scss';
-@import 'button.scss';
+@import "app.scss";
+@import "animations.scss";
+@import "avatar.scss";
+@import "profile.scss";
+@import "button.scss";
 
 // :root {
 #people-app {
@@ -97,7 +97,7 @@
 	// 	radial-gradient(circle at top right, #c45af3, transparent),
 	// 	linear-gradient(#ee66ca, #ff47a6);
 	color: var(--app-text);
-	font-family: 'Montserrat', sans-serif;
+	font-family: "Montserrat", sans-serif;
 }
 
 #people-app {
@@ -126,7 +126,7 @@
 		height: calc(var(--spinner-size) / 3);
 		animation: spinner 2s infinite ease-in-out;
 		background-color: rgba(255, 255, 255, 0.6);
-		content: '';
+		content: "";
 	}
 
 	.spinner::after {
@@ -147,8 +147,9 @@
 				translateY(calc(var(--spinner-size) / 3 * 2 - 1px)) rotate(-180deg);
 		}
 		75% {
-			transform: translateX(0) translateY(calc(var(--spinner-size) / 3 * 2 - 1px))
-				rotate(-270deg) scale(0.5);
+			transform: translateX(0)
+				translateY(calc(var(--spinner-size) / 3 * 2 - 1px)) rotate(-270deg)
+				scale(0.5);
 		}
 		100% {
 			transform: rotate(-360deg);

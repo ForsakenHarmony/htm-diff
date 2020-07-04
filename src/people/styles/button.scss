@@ -9,7 +9,7 @@
 		background-color: transparent;
 		border-radius: 4px;
 		color: var(--app-text);
-		font-family: 'Montserrat', sans-serif;
+		font-family: "Montserrat", sans-serif;
 		font-size: 14px;
 		font-weight: 600;
 		letter-spacing: 0.08em;
@@ -25,7 +25,7 @@
 		bottom: 0;
 		left: 0;
 		background-color: var(--app-ripple);
-		content: '';
+		content: "";
 		opacity: 0;
 		transition: opacity 200ms;
 	}
@@ -54,7 +54,7 @@
 		background-position: center;
 		background-repeat: no-repeat;
 		background-size: 20000%;
-		content: '';
+		content: "";
 		opacity: 0;
 		transition: opacity 700ms, background 400ms;
 	}

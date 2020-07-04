@@ -1,11 +1,6 @@
-import {html, render} from "./lib";
-import {App} from "./people";
+import { html, render } from "./lib";
+import { App } from "./people";
 
 const parent = document.querySelector("main")!;
 
-render(
-  html`
-    <${App} />
-  `,
-  parent
-);
+render(html` <${App} /> `, parent);
