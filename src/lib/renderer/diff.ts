@@ -1,5 +1,5 @@
-import { Obj } from "../observed";
-import { isTemplate, Template, tmplSym } from "./parser";
+import {Obj} from "../observed";
+import {isTemplate, Template, tmplSym} from "./parser";
 import {
 	Component,
 	Elements,
@@ -8,7 +8,7 @@ import {
 	Operation,
 	State, Thing,
 } from "./types";
-import { destroyState, renderComponent } from "./index";
+import {destroyState, renderComponent} from "./index";
 
 const evtMap: { [name: string]: (e: Event) => any } = {
 	// @ts-ignore
@@ -102,7 +102,7 @@ export function evaluate(
 				let evt = name.slice(1);
 				let listeners = current.__listeners || (current.__listeners = {});
 				let fn = val;
-				listeners[evt] = { fn, listen: evtHandler.bind(null, evt, fn) };
+				listeners[evt] = {fn, listen: evtHandler.bind(null, evt, fn)};
 				current.addEventListener(evt, listeners[evt].listen);
 				elem.props[name] = val;
 				return;
@@ -111,7 +111,9 @@ export function evaluate(
 			let mapped = attrMap[name] || name;
 			// console.log("eval", current, mapped, val);
 
-			if (mapped === "style") {
+			if (mapped === "key") {
+				// skip
+			} else if (mapped === "style") {
 				Object.assign(
 					((current as unknown) as ElementCSSInlineStyle).style,
 					val
@@ -119,6 +121,7 @@ export function evaluate(
 			} else if (elem.props[mapped] !== val) {
 				(current as any)[mapped] = val;
 			}
+			elem.props[mapped] = val;
 		},
 	} as any) as Function[];
 
@@ -141,6 +144,7 @@ export function evaluate(
 		elements,
 		components,
 		template,
+		key: template.key,
 	};
 }
 
@@ -162,6 +166,9 @@ function handleText(content: any, parent: Node, element?: Elements): Elements {
 
 		if (!Array.isArray(element)) element = [element];
 
+		let existing = <State[]>element;
+		let next = <Template[]>content;
+
 		// const keep = [];
 		// const newArr = [];
 
@@ -177,11 +184,70 @@ function handleText(content: any, parent: Node, element?: Elements): Elements {
 		//   }
 		// }
 
+		// [
+		//   [
+		//     "beautifulcat779",        0
+		//     "whitebutterfly252",      1
+		//     "beautifulelephant338",   2
+		//     "angrymouse560",          3
+		//     "blackfrog685",           4
+		//     "smallpeacock962",        5
+		//     "crazylion767",           6
+		//     "angrywolf861",           7
+		//     "goldenduck254",          8
+		//     "whiteleopard955",        9
+		//     "goldenostreich800",      10
+		//     "orangeladybug426"        11
+		//   ],
+		//   [
+		//     "angrymouse560",          3
+		//     "angrywolf861",           7
+		//     "beautifulcat779",        0
+		//     "beautifulelephant338",   2
+		//     "blackfrog685",           4
+		//     "crazylion767",           6
+		//     "goldenduck254",          8
+		//     "goldenostrich800",       10
+		//     "orangeladybug426",       11
+		//     "smallpeacock962",        5
+		//     "whitebutterfly252",      1
+		//     "whiteleopard955"         9
+		//   ]
+		//
+		//  [ 2, 10 ]
+		//
+
 		console.log(element, content);
+		//for (let i = 0; i < next.length; i++) {
+			//let other = next[i].key;
+			//for (let j = 0; j < i; j++) {}
+		//}
+
+		if (existing.length != next.length) {
+			destroy(element);
+			return content.reduce((acc, c) => acc.concat(handleText(c, parent)), []);
+		}
+
+		let diffed = [];
+		for (let i = 0; i < existing.length; i++) {
+			let key = existing[i].key;
+			for (let j = 0; j < i; j++) {
+				let other = next[j].key;
+				if (key === other) {
+					next[j].exec(parent, existing[i]);
+					if (i !== j) {
+					  parent.insertBefore(existing[i].elements[0].self as Node, existing[j].elements[0].self as Node);
+					}
+					diffed[j] = existing[i];
+					break;
+				} else if (j === i) {}
+			}
+		}
+		return diffed;
+
+		// console.log(JSON.stringify([element.map(e => e.key), content.map(e => e.key)], void 0, 2));
 		// destroy(toRemove);
 
-		destroy(element);
-		return content.reduce((acc, c) => acc.concat(handleText(c, parent)), []);
 		// return content.map(c => handleText(c, element));
 	} else if (isTemplate(content)) {
 		if (Array.isArray(element)) {
@@ -249,7 +315,7 @@ export function diff(
 				const listeners = element.__listeners || (element.__listeners = {});
 				if (listeners[evt].fn === fn) return;
 				element.removeEventListener(evt, listeners[evt].listen);
-				listeners[evt] = { fn, listen: evtHandler.bind(null, evt, fn) };
+				listeners[evt] = {fn, listen: evtHandler.bind(null, evt, fn)};
 				element.addEventListener(evt, listeners[evt].listen);
 				elem.props[name] = val;
 				return;
@@ -258,6 +324,7 @@ export function diff(
 			const mapped = attrMap[name] || name;
 			// console.log("diff", element, mapped, val);
 			if (elem.props[mapped] !== val) (element as any)[mapped] = val;
+			elem.props[mapped] = val;
 		},
 	} as any) as Function[];
 

@@ -67,6 +67,7 @@ export interface State {
 	elements: Thing[];
 	components: Instance<any>[];
 	template: Template;
+	key?: any;
 }
 
 export interface Instance<Props> extends State {
