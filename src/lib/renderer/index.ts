@@ -1,7 +1,7 @@
-import { createObserved, subscribe, trackObservables } from "../observed";
-import { Component, Instance, State } from "./types";
-import { isTemplate, Template } from "./parser";
-import { html } from "./parser";
+import {createObserved, subscribe, trackObservables} from "../observed";
+import {Component, ComponentFn, Instance, State, Template} from "./types";
+import {html, isTemplate} from "./parser";
+import {tmplSym} from "../consts";
 
 export { html };
 
@@ -27,7 +27,6 @@ export function getCurrentRendering(): Instance<any> {
 export function renderComponent<Props>(
 	init: Component<Props>,
 	props: Props,
-	parent: Node
 ): Instance<Props> {
 	props = createObserved(props);
 
@@ -38,7 +37,6 @@ export function renderComponent<Props>(
 		hooks: [],
 		elements: [],
 		components: [],
-		parent,
 		constructor: init,
 	} as Partial<Instance<Props>>) as unknown) as Instance<Props>;
 	currentRendering = instance;
@@ -50,9 +48,8 @@ export function renderComponent<Props>(
 		render = tmpl;
 		return render(props);
 	});
-	const state = tmpl.exec(parent);
-
-	Object.assign(instance, state, { render });
+	instance.state = tmpl.exec();
+	instance.render = render as ComponentFn<Props>;
 
 	instance.observables = observables.map((obs) => [
 		obs,
@@ -66,15 +63,25 @@ function diffComponent<Props>(instance: Instance<Props>) {
 	const [tmpl, observables] = trackObservables(() =>
 		instance.render(instance.props)
 	);
-	const state = tmpl.exec(instance.parent, instance);
+	if (tmpl[tmplSym] !== instance.state.template[tmplSym]) {
+		destroyState(instance.state);
+		instance.state = tmpl.exec();
+	} else {
+		instance.state = tmpl.exec(instance.state);
+	}
 
-	instance.elements
-		.slice(1)
-		.filter((e) => !state.elements.includes(e))
-		.map(({ parent, self }) => self instanceof Node && self.isConnected && parent.removeChild(self));
-	instance.components
-		.filter((c) => !state.components.includes(c))
-		.map((c) => destroyComponent(c));
+	// const state = tmpl.exec(instance);
+	//
+	// instance.elements
+	// 	.slice(1)
+	// 	.filter((e) => !state.elements.includes(e))
+	// 	.map(
+	// 		({ parent, self }) =>
+	// 			self instanceof Node && self.isConnected && parent.removeChild(self)
+	// 	);
+	// instance.components
+	// 	.filter((c) => !state.components.includes(c))
+	// 	.map((c) => destroyComponent(c));
 
 	instance.observables
 		.filter((o) => !observables.includes(o[0]))
@@ -92,14 +99,17 @@ function diffComponent<Props>(instance: Instance<Props>) {
 export function destroyState(state: State) {
 	state.elements
 		.slice(1)
-		.map(({ parent, self}) => self instanceof Node && self.isConnected && parent.removeChild(self));
+		.map(
+			({ self }) =>
+				self instanceof Node && self.isConnected && self.parentNode!.removeChild(self)
+		);
 	state.components.map((c) => destroyComponent(c));
 }
 
 export function destroyComponent(inst: Instance<any>) {
 	inst.hooks.map((f) => f());
 	inst.observables.map((o) => o[1]());
-	destroyState(inst);
+	destroyState(inst.state);
 }
 
 // function diffComponent<Props>(
@@ -112,5 +122,6 @@ export function destroyComponent(inst: Instance<any>) {
 // }
 
 export function render(template: Template, parent: Element) {
-	template.exec(parent);
+	let state = template.exec();
+	parent.append(...state.rootElements);
 }

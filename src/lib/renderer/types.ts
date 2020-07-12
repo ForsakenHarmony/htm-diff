@@ -1,21 +1,21 @@
 import { ObservedObj } from "../observed";
-import { Template } from "./parser";
+import { tmplSym } from "../consts";
 
 export const enum OperationType {
 	// create element
 	// @args tagName
-	Element,
+	Element = "elem",
 	// go up one level
-	Up,
+	Up = "up",
 	// create text node
 	// @args tagName
-	Text,
+	Text = "text",
 	// render component
 	// @args component
-	Component,
+	Component = "comp",
 	// set attribute
 	// @args key value
-	Attribute,
+	Attribute = "attr",
 }
 
 // export type Operations = (number | string | boolean | [number])[];
@@ -26,6 +26,14 @@ export type Operation = {
 
 export type Elements = Node | State | ElementsArray;
 export interface ElementsArray extends Array<Elements> {}
+
+export interface Template {
+	exec(state?: State): State;
+	key?: any;
+	__raw: string;
+
+	[tmplSym]: Function;
+}
 
 // type ContentTypes = null | undefined | boolean | string | Template | Content[];
 export type Content =
@@ -58,23 +66,24 @@ export type Component<Props> = ComponentInit<Props> | ComponentFn<Props>;
 // }
 
 export interface Thing {
-	parent: Node;
+	parent: Element;
 	self: Elements;
 	props: { [key: string]: any };
 }
 
 export interface State {
+	rootElements: Element[];
 	elements: Thing[];
 	components: Instance<any>[];
 	template: Template;
 	key?: any;
 }
 
-export interface Instance<Props> extends State {
+export interface Instance<Props> {
 	props: Props;
 	render: ComponentFn<Props>;
 	observables: [ObservedObj, Function][];
 	hooks: Function[];
-	parent: Node;
 	constructor: ComponentInit<Props>;
+	state: State,
 }

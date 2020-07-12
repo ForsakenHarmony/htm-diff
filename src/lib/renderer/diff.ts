@@ -1,14 +1,17 @@
 import {Obj} from "../observed";
-import {isTemplate, Template, tmplSym} from "./parser";
+import {isTemplate} from "./parser";
 import {
 	Component,
 	Elements,
 	Instance,
 	OperationType,
 	Operation,
-	State, Thing,
+	State,
+	Thing,
+	Template,
 } from "./types";
 import {destroyState, renderComponent} from "./index";
+import {tmplSym} from "../consts";
 
 const evtMap: { [name: string]: (e: Event) => any } = {
 	// @ts-ignore
@@ -22,9 +25,9 @@ const attrMap: { [name: string]: string } = {
 };
 
 function makeElement(
-	parent: Node,
+	parent: Element,
 	self: Elements,
-	props: { [key: string]: any } = {},
+	props: { [key: string]: any } = {}
 ): State["elements"][0] {
 	return {
 		parent,
@@ -37,41 +40,33 @@ export function evaluate(
 	template: Template,
 	ops: Operation[],
 	dynamics: any[],
-	parent: Node
+	// parent: Node
 ): State {
-	let elements: State["elements"] = [makeElement(parent.parentNode!, parent)];
+	let parent = document.createDocumentFragment();
+	let elements: State["elements"] = [makeElement(parent.parentNode! as any, parent)];
 	let components: Instance<any>[] = [];
 	// let dynamic: any[] = [];
 	let currentElement: number[] = [0];
 	let component: Component<any> | null = null;
 	let props: Obj | null = null;
 
-	// const el: () => Node | undefined = () => {
-	//   let elem: Node | undefined = undefined;
-	//
-	//   for (let i = elements.length - 1; i >= 0; --i) {
-	//     const item = elements[i];
-	//     if (!Array.isArray(item)) {
-	//       elem = item;
-	//       break;
-	//     }
-	//   }
-	//
-	//   return elem;
-	// };
-	let el: () => Thing = () => elements[currentElement[currentElement.length - 1]];
+	let el: () => Thing = () =>
+		elements[currentElement[currentElement.length - 1]];
 
 	let finishComponent = () => {
 		if (component === null || props === null) throw new Error("invariant");
-		components.push(renderComponent(component!, props, el().self as Node));
+		let comp = renderComponent(component!, props);
+		let current = el().self as Element;
+		current.append(...comp.state.rootElements);
+		components.push(comp);
 		component = null;
 		props = null;
 	};
 
-	const match = ({
+	const match = {
 		[OperationType.Element]: (tag: string) => {
 			let newElement = document.createElement(tag);
-			let current = el().self as Node;
+			let current = el().self as Element;
 			if (current) current.appendChild(newElement);
 			let idx = elements.push(makeElement(current, newElement)) - 1;
 			currentElement.push(idx);
@@ -81,7 +76,9 @@ export function evaluate(
 		},
 		[OperationType.Text]: (content: any) => {
 			let elem = el();
-			elements.push(makeElement(elem.self as Node, handleText(content, elem.self as Node)));
+			elements.push(
+				makeElement(elem.self as Element, handleText(content, elem.self as Element))
+			);
 		},
 		[OperationType.Component]: (comp: Component<any>) => {
 			// FIXME
@@ -123,15 +120,12 @@ export function evaluate(
 			}
 			elem.props[mapped] = val;
 		},
-	} as any) as Function[];
+	} as { [typ: string]: Function };
 
 	let len = ops.length;
 	for (let i = 0; i < len; i++) {
 		let typ = ops[i].typ;
-		if (
-			component !== null &&
-			typ !== OperationType.Attribute
-		)
+		if (component !== null && typ !== OperationType.Attribute)
 			finishComponent();
 		let fn = match[typ];
 		if (!fn) throw new Error("not a valid operation");
@@ -139,8 +133,12 @@ export function evaluate(
 			...ops[i].args.map((arg) => (Array.isArray(arg) ? dynamics[arg[0]] : arg))
 		);
 	}
+	if (component !== null) {
+		finishComponent();
+	}
 
 	return {
+		rootElements: Array.from(parent.children),
 		elements,
 		components,
 		template,
@@ -155,7 +153,17 @@ export function destroy(element: Elements): void {
 	else destroyState(element);
 }
 
-function handleText(content: any, parent: Node, element?: Elements): Elements {
+function insertBefore(parent: Element, elements: Element[], ref: Node | null) {
+	for (let i = 0; i < elements.length; i++) {
+		console.log("insertBefore", elements[i], ref)
+		parent.insertBefore(
+			elements[i],
+			ref
+		)
+	}
+}
+
+function handleText(content: any, parent: Element, element?: Elements): Elements {
 	if (content == null || content === false) {
 		element && destroy(element);
 		return [];
@@ -169,129 +177,78 @@ function handleText(content: any, parent: Node, element?: Elements): Elements {
 		let existing = <State[]>element;
 		let next = <Template[]>content;
 
-		// const keep = [];
-		// const newArr = [];
-
-		// const toRemove = [];
-
-		// let ci = 0, cl = content.length;
-		// let eo = 0, ei = 0, el = element.length;
-		//
-		// for (; ci < cl; ci++) {
-		//   let contentEl = content[ci];
-		//   for (ei = eo; ei < el; ei++) {
-		//
-		//   }
-		// }
-
-		// [
-		//   [
-		//     "beautifulcat779",        0
-		//     "whitebutterfly252",      1
-		//     "beautifulelephant338",   2
-		//     "angrymouse560",          3
-		//     "blackfrog685",           4
-		//     "smallpeacock962",        5
-		//     "crazylion767",           6
-		//     "angrywolf861",           7
-		//     "goldenduck254",          8
-		//     "whiteleopard955",        9
-		//     "goldenostreich800",      10
-		//     "orangeladybug426"        11
-		//   ],
-		//   [
-		//     "angrymouse560",          3
-		//     "angrywolf861",           7
-		//     "beautifulcat779",        0
-		//     "beautifulelephant338",   2
-		//     "blackfrog685",           4
-		//     "crazylion767",           6
-		//     "goldenduck254",          8
-		//     "goldenostrich800",       10
-		//     "orangeladybug426",       11
-		//     "smallpeacock962",        5
-		//     "whitebutterfly252",      1
-		//     "whiteleopard955"         9
-		//   ]
-		//
-		//  [ 2, 10 ]
-		//
-
-		// if (existing.length != next.length) {
-		// 	destroy(element);
-		// 	return content.reduce((acc, c) => acc.concat(handleText(c, parent)), []);
-		// }
-
-		// if (existing.length === 0) {
-		// 	return content.reduce((acc, c) => acc.concat(handleText(c, parent)), []);
-		// }
-
 		let diffed = [];
 		let keep = [];
+
+		let skew = 0;
+
+		let alreadyDiffed = new Map();
+
 		console.log(element, content);
 		for (let i = 0; i < next.length; i++) {
+			// previously empty
 			if (existing.length === 0) {
-				diffed.push(next[i].exec(parent));
+				let state = next[i].exec();
+				diffed.push(state);
+				insertBefore(parent, state.rootElements, null);
 				continue;
 			}
 			let key = next[i].key;
 			for (let j = 0; j < existing.length; j++) {
 				let other = existing[j].key;
-				console.log(i, key, j, other);
-				if (key === other) {
-					keep.push(j);
-					diffed[i] = next[i].exec(parent, existing[j]);
-					if (j < i) {
-						parent.insertBefore(diffed[i].elements[1].self as Node, existing[j].elements[1].self as Node);
+				// console.log(i, key, j, other);
+				if (key != null && key === other) {
+					keep[j] = true;
+					diffed[i] = next[i].exec(existing[j]);
+
+					let skewed = j + i;
+					// position has to change, we can push back stuff that's after it's old positions
+					if (i < skewed) {
+						let offset = i - skew;
+						// skip the ones we already diffed
+						while (offset < existing.length && alreadyDiffed.get(existing[offset].key)) offset++;
+
+						if (j !== offset)
+							insertBefore(parent, diffed[i].rootElements, offset < existing.length ? existing[offset].rootElements[0] : null)
+						skew++;
 					}
+					alreadyDiffed.set(key, true);
 					break;
 				} else if (j === existing.length - 1) {
-					// no match found
-					diffed[i] = next[i].exec(parent);
-					parent.insertBefore(diffed[i].elements[1].self as Node, i === next.length - 1 ? null : existing[i].elements[1].self as Node);
+					// no match found, create new
+					let state = next[i].exec();
+					diffed[i] = state;
+					insertBefore(parent, state.rootElements, i === next.length - 1
+						? null
+						: (existing[i].rootElements[0]));
 				}
 			}
 		}
 
-		console.log(keep);
+		// console.log(keep);
 		for (let i = 0; i < existing.length; i++) {
-			if (keep.includes(i)) break;
+			if (keep[i]) continue;
 			destroy(existing[i]);
 		}
 
-		// for (let i = 0; i < existing.length; i++) {
-		// 	let key = existing[i].key;
-		// 	for (let j = 0; j < i; j++) {
-		// 		let other = next[j].key;
-		// 		if (key === other) {
-		// 			next[j].exec(parent, existing[i]);
-		// 			if (i !== j) {
-		// 			  parent.insertBefore(existing[i].elements[0].self as Node, existing[j].elements[0].self as Node);
-		// 			}
-		// 			diffed[j] = existing[i];
-		// 			break;
-		// 		} else if (j === i) {}
-		// 	}
-		// }
 		return diffed;
-
-		// console.log(JSON.stringify([element.map(e => e.key), content.map(e => e.key)], void 0, 2));
-		// destroy(toRemove);
-
-		// return content.map(c => handleText(c, element));
 	} else if (isTemplate(content)) {
 		if (Array.isArray(element)) {
 			return handleText([content], parent, element);
 		} else if (!element) {
-			return content.exec(parent);
+			let state = content.exec();
+			parent.append(...state.rootElements);
+			return state;
 		} else if (
 			element instanceof Node ||
 			element.template[tmplSym] !== content[tmplSym]
 		) {
 			destroy(element);
-			return content.exec(parent);
+			let state = content.exec();
+			parent.append(...state.rootElements);
+			return state;
 		} else {
-			return content.exec(parent, element);
+			return content.exec(element);
 		}
 	} else if (element instanceof Text) {
 		(element as Text).data = content;
@@ -317,10 +274,13 @@ export function diff(
 
 	// const el = () => elements[currentElement[currentElement.length - 1]];
 
-	const match = ({
+	const match = {
 		[OperationType.Text]: (idx: number, content: any) => {
 			const el = instance.elements[idx];
-			instance.elements[idx] = makeElement(el.parent, handleText(content, el.parent, el.self));
+			instance.elements[idx] = makeElement(
+				el.parent,
+				handleText(content, el.parent, el.self)
+			);
 
 			// if (element instanceof Node) (element as Text).data = arg();
 			//
@@ -363,7 +323,7 @@ export function diff(
 			} else if (elem.props[mapped] !== val) (element as any)[mapped] = val;
 			elem.props[mapped] = val;
 		},
-	} as any) as Function[];
+	} as { [typ: string]: Function };
 
 	let len = diffOps.length;
 	for (let i = 0; i < len; i++) {

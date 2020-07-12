@@ -1,5 +1,6 @@
-import {Operation, OperationType, State} from "./types";
-import {diff, evaluate} from "./diff";
+import { Operation, OperationType, State, Template } from "./types";
+import { diff, evaluate } from "./diff";
+import { tmplSym } from "../consts";
 
 const enum Mode {
 	Text,
@@ -9,32 +10,31 @@ const enum Mode {
 	AttributeValue,
 }
 
-export const tmplSym = Symbol("template");
-
-export interface Template {
-	exec(parent: Node, state?: State): State;
-	key?: any,
-
-	[tmplSym]: Function;
-}
-
 export function isTemplate(tmpl: any): tmpl is Template {
 	return typeof tmpl[tmplSym] === "function";
 }
 
-const CACHE: Map<TemplateStringsArray, [(dynamics: unknown[], parent: Node, state?: State) => State, number?]> = new Map();
+const CACHE: Map<
+	TemplateStringsArray,
+	[(dynamics: unknown[], state?: State) => State, number?]
+> = new Map();
 
 function makeOp(typ: OperationType, args: any[] = []) {
-	return {typ, args};
+	return { typ, args };
 }
 
-function compile(
+export function parse(
 	staticStrings: TemplateStringsArray
-): [(dynamics: unknown[], parent: Node, state?: State) => State, number?] {
-	const statics = staticStrings.map((s, i) =>
-		(i === 0 ? s.trimStart() : i === staticStrings.length ? s.trimEnd() : s)
-			.replace(/[\n\r\t\s]+/g, " ")
-			// .replace(/\s{2,}/g, " ")
+): { ops: Operation[]; diffOps: Operation[] } {
+	const statics = staticStrings.map(
+		(s, i) =>
+			(i === 0
+				? s.trimStart()
+				: i === staticStrings.length
+				? s.trimEnd()
+				: s
+			).replace(/[\n\r\t\s]+/g, " ")
+		// .replace(/\s{2,}/g, " ")
 	);
 
 	let ops: Operation[] = [];
@@ -46,6 +46,13 @@ function compile(
 
 	let addOpArg = (arg: any) => {
 		ops[ops.length - 1].args.push(arg);
+	};
+	let lastIsComponent = () => {
+		for (let i = ops.length - 1; i >= 0; i--) {
+			if (ops[i].typ === OperationType.Component) return true;
+			if (ops[i].typ !== OperationType.Attribute) return false;
+		}
+		return false;
 	};
 
 	for (let i = 0; i < statics.length; i++) {
@@ -124,7 +131,7 @@ function compile(
 			} else if (mode === Mode.TagEnd) {
 				if (char === ">") {
 					mode = Mode.Text;
-					ops.push(makeOp(OperationType.Up));
+					if (!lastIsComponent()) ops.push(makeOp(OperationType.Up));
 					buffer = "";
 				}
 			}
@@ -135,8 +142,22 @@ function compile(
 		throw new Error("something is fucked");
 	}
 
+	return {
+		ops,
+		diffOps,
+	};
+}
+
+function compile(
+	staticStrings: TemplateStringsArray
+): [(dynamics: unknown[], state?: State) => State, number?] {
+	let { ops, diffOps } = parse(staticStrings);
+
 	let keyIdx;
-	if (ops[0].typ === OperationType.Element || ops[0].typ === OperationType.Component) {
+	if (
+		ops[0].typ === OperationType.Element ||
+		ops[0].typ === OperationType.Component
+	) {
 		for (let i = 1; i < ops.length; i++) {
 			if (ops[i].typ !== OperationType.Attribute) {
 				break;
@@ -148,13 +169,17 @@ function compile(
 		}
 	}
 
-	function exec(this: Template, dynamics: unknown[], parent: Node, state?: State) {
+	function exec(
+		this: Template,
+		dynamics: unknown[],
+		state?: State
+	) {
 		return state
 			? diff(this, diffOps, dynamics, state)
-			: evaluate(this, ops, dynamics, parent);
+			: evaluate(this, ops, dynamics);
 	}
 
-	return [exec, keyIdx]
+	return [exec, keyIdx];
 }
 
 export function html(
@@ -164,14 +189,15 @@ export function html(
 	let template, keyIdx;
 	let res = CACHE.get(staticStrings);
 	if (res == null) {
-		[template, keyIdx] = compile(staticStrings)
-		CACHE.set(staticStrings, [template, keyIdx])
+		[template, keyIdx] = compile(staticStrings);
+		CACHE.set(staticStrings, [template, keyIdx]);
 	} else {
 		[template, keyIdx] = res;
 	}
 
-	const tmpl: Partial<Template> = {[tmplSym]: template};
+	const tmpl: Partial<Template> = { [tmplSym]: template };
 	tmpl.exec = template.bind(tmpl, dynamic);
+	tmpl.__raw = staticStrings.join("{...}");
 	if (keyIdx != null) {
 		tmpl.key = dynamic[keyIdx];
 	}

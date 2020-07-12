@@ -1,6 +1,6 @@
 import "todomvc-app-css/index.css";
 // import "./styles.css";
-import { html,  data, computed } from "./lib";
+import { html, data, computed } from "./lib";
 import clsx from "clsx";
 import { subscribe } from "./lib/observed";
 
@@ -189,7 +189,7 @@ const MainSection = (props: { store: Store }) => {
 				${renderToggleAll()}
 				<ul class="todo-list">
 					${filteredTodos.map(
-						(todo) => html` <${TodoItem} key=${todo.id} todo=${todo} /> `
+						(todo) => html`<${TodoItem} key=${todo.id} todo=${todo} />`
 					)}
 				</ul>
 				${renderFooter()}
@@ -277,6 +277,8 @@ const Header = (props: { addTodo: (text: string) => void }) => {
 		`;
 };
 
+// let todoId = 0;
+
 export const App = () => {
 	const internal = data<StoreWithoutComputed>({
 		todos: [],
@@ -332,4 +334,3 @@ export const App = () => {
 			</div>
 		`;
 };
-

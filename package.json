@@ -9,12 +9,15 @@
     "dev": "vite",
     "build": "parcel build ./src/index.html",
     "prettier": "prettier --write ./src/**/*",
-    "build:lib": "tsc"
+    "build:lib": "tsc",
+    "test": "uvu -r ts-node/register src/lib/test"
   },
   "devDependencies": {
     "prettier": "^2.0.5",
     "sass": "^1.26.10",
+    "ts-node": "^8.10.2",
     "typescript": "^3.9.6",
+    "uvu": "^0.2.1",
     "vite": "^1.0.0-beta.11"
   },
   "files": [
