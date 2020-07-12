@@ -217,32 +217,62 @@ function handleText(content: any, parent: Node, element?: Elements): Elements {
 		//  [ 2, 10 ]
 		//
 
-		console.log(element, content);
-		//for (let i = 0; i < next.length; i++) {
-			//let other = next[i].key;
-			//for (let j = 0; j < i; j++) {}
-		//}
+		// if (existing.length != next.length) {
+		// 	destroy(element);
+		// 	return content.reduce((acc, c) => acc.concat(handleText(c, parent)), []);
+		// }
 
-		if (existing.length != next.length) {
-			destroy(element);
-			return content.reduce((acc, c) => acc.concat(handleText(c, parent)), []);
-		}
+		// if (existing.length === 0) {
+		// 	return content.reduce((acc, c) => acc.concat(handleText(c, parent)), []);
+		// }
 
 		let diffed = [];
-		for (let i = 0; i < existing.length; i++) {
-			let key = existing[i].key;
-			for (let j = 0; j < i; j++) {
-				let other = next[j].key;
+		let keep = [];
+		console.log(element, content);
+		for (let i = 0; i < next.length; i++) {
+			if (existing.length === 0) {
+				diffed.push(next[i].exec(parent));
+				continue;
+			}
+			let key = next[i].key;
+			for (let j = 0; j < existing.length; j++) {
+				let other = existing[j].key;
+				console.log(i, key, j, other);
 				if (key === other) {
-					next[j].exec(parent, existing[i]);
-					if (i !== j) {
-					  parent.insertBefore(existing[i].elements[0].self as Node, existing[j].elements[0].self as Node);
+					keep.push(j);
+					diffed[i] = next[i].exec(parent, existing[j]);
+					if (j < i) {
+						parent.insertBefore(diffed[i].elements[1].self as Node, existing[j].elements[1].self as Node);
 					}
-					diffed[j] = existing[i];
 					break;
-				} else if (j === i) {}
+				} else if (j === existing.length - 1) {
+					// no match found
+					diffed[i] = next[i].exec(parent);
+					parent.insertBefore(diffed[i].elements[1].self as Node, i === next.length - 1 ? null : existing[i].elements[1].self as Node);
+				}
 			}
 		}
+
+		console.log(keep);
+		for (let i = 0; i < existing.length; i++) {
+			if (keep.includes(i)) break;
+			destroy(existing[i]);
+		}
+
+		// for (let i = 0; i < existing.length; i++) {
+		// 	let key = existing[i].key;
+		// 	for (let j = 0; j < i; j++) {
+		// 		let other = next[j].key;
+		// 		if (key === other) {
+		// 			next[j].exec(parent, existing[i]);
+		// 			if (i !== j) {
+		// 			  parent.insertBefore(existing[i].elements[0].self as Node, existing[j].elements[0].self as Node);
+		// 			}
+		// 			diffed[j] = existing[i];
+		// 			break;
+		// 		} else if (j === i) {}
+		// 	}
+		// }
 		return diffed;
 
 		// console.log(JSON.stringify([element.map(e => e.key), content.map(e => e.key)], void 0, 2));
@@ -323,7 +353,14 @@ export function diff(
 
 			const mapped = attrMap[name] || name;
 			// console.log("diff", element, mapped, val);
-			if (elem.props[mapped] !== val) (element as any)[mapped] = val;
+			if (mapped === "key") {
+				// skip
+			} else if (mapped === "style") {
+				Object.assign(
+					((element as unknown) as ElementCSSInlineStyle).style,
+					val
+				);
+			} else if (elem.props[mapped] !== val) (element as any)[mapped] = val;
 			elem.props[mapped] = val;
 		},
 	} as any) as Function[];

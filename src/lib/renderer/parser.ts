@@ -148,8 +148,6 @@ function compile(
 		}
 	}
 
-
-
 	function exec(this: Template, dynamics: unknown[], parent: Node, state?: State) {
 		return state
 			? diff(this, diffOps, dynamics, state)
