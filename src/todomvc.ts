@@ -177,7 +177,7 @@ const MainSection = (props: { store: Store }) => {
 		const { store } = props;
 
 		if (store.todos.length) {
-			return html` <${Footer} store=${store} /> `;
+			return html`<${Footer} store=${store} />`;
 		}
 	}
 

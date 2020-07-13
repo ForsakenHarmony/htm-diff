@@ -1,7 +1,7 @@
-import {createObserved, subscribe, trackObservables} from "../observed";
-import {Component, ComponentFn, Instance, State, Template} from "./types";
-import {html, isTemplate} from "./parser";
-import {tmplSym} from "../consts";
+import { createObserved, subscribe, trackObservables } from "../observed";
+import { Component, ComponentFn, Instance, State, Template } from "./types";
+import { html, isTemplate } from "./parser";
+import { tmplSym } from "../consts";
 
 export { html };
 
@@ -26,7 +26,7 @@ export function getCurrentRendering(): Instance<any> {
 
 export function renderComponent<Props>(
 	init: Component<Props>,
-	props: Props,
+	props: Props
 ): Instance<Props> {
 	props = createObserved(props);
 
@@ -101,7 +101,9 @@ export function destroyState(state: State) {
 		.slice(1)
 		.map(
 			({ self }) =>
-				self instanceof Node && self.isConnected && self.parentNode!.removeChild(self)
+				self instanceof Node &&
+				self.isConnected &&
+				self.parentNode!.removeChild(self)
 		);
 	state.components.map((c) => destroyComponent(c));
 }

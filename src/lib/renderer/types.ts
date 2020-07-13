@@ -24,7 +24,8 @@ export type Operation = {
 	args: any[];
 };
 
-export type Elements = Node | State | ElementsArray;
+// export type HtmNode = ParentNode & Node;
+export type Elements = Node | State | null | ElementsArray;
 export interface ElementsArray extends Array<Elements> {}
 
 export interface Template {
@@ -66,14 +67,14 @@ export type Component<Props> = ComponentInit<Props> | ComponentFn<Props>;
 // }
 
 export interface Thing {
-	parent: Element;
-	self: Elements;
+	self: Element;
 	props: { [key: string]: any };
 }
 
 export interface State {
 	rootElements: Element[];
 	elements: Thing[];
+	text: [Element, Elements][];
 	components: Instance<any>[];
 	template: Template;
 	key?: any;
@@ -85,5 +86,5 @@ export interface Instance<Props> {
 	observables: [ObservedObj, Function][];
 	hooks: Function[];
 	constructor: ComponentInit<Props>;
-	state: State,
+	state: State;
 }

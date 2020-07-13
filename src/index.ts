@@ -1,5 +1,5 @@
 import { html, render } from "./lib";
-import { App } from "./todomvc";
+import { App } from "./reorder";
 
 const parent = document.querySelector("main")!;
 

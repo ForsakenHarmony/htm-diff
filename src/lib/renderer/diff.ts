@@ -1,5 +1,5 @@
-import {Obj} from "../observed";
-import {isTemplate} from "./parser";
+import { Obj } from "../observed";
+import { isTemplate } from "./parser";
 import {
 	Component,
 	Elements,
@@ -10,8 +10,8 @@ import {
 	Thing,
 	Template,
 } from "./types";
-import {destroyState, renderComponent} from "./index";
-import {tmplSym} from "../consts";
+import { destroyState, renderComponent } from "./index";
+import { tmplSym } from "../consts";
 
 const evtMap: { [name: string]: (e: Event) => any } = {
 	// @ts-ignore
@@ -25,12 +25,10 @@ const attrMap: { [name: string]: string } = {
 };
 
 function makeElement(
-	parent: Element,
-	self: Elements,
+	self: Element,
 	props: { [key: string]: any } = {}
 ): State["elements"][0] {
 	return {
-		parent,
 		self,
 		props,
 	};
@@ -39,16 +37,16 @@ function makeElement(
 export function evaluate(
 	template: Template,
 	ops: Operation[],
-	dynamics: any[],
+	dynamics: any[]
 	// parent: Node
 ): State {
 	let parent = document.createDocumentFragment();
-	let elements: State["elements"] = [makeElement(parent.parentNode! as any, parent)];
+	let elements: State["elements"] = [makeElement((parent as Node) as Element)];
 	let components: Instance<any>[] = [];
-	// let dynamic: any[] = [];
 	let currentElement: number[] = [0];
 	let component: Component<any> | null = null;
 	let props: Obj | null = null;
+	let text: [Element, Elements][] = [];
 
 	let el: () => Thing = () =>
 		elements[currentElement[currentElement.length - 1]];
@@ -56,7 +54,7 @@ export function evaluate(
 	let finishComponent = () => {
 		if (component === null || props === null) throw new Error("invariant");
 		let comp = renderComponent(component!, props);
-		let current = el().self as Element;
+		let current = el().self;
 		current.append(...comp.state.rootElements);
 		components.push(comp);
 		component = null;
@@ -66,9 +64,9 @@ export function evaluate(
 	const match = {
 		[OperationType.Element]: (tag: string) => {
 			let newElement = document.createElement(tag);
-			let current = el().self as Element;
+			let current = el().self;
 			if (current) current.appendChild(newElement);
-			let idx = elements.push(makeElement(current, newElement)) - 1;
+			let idx = elements.push(makeElement(newElement)) - 1;
 			currentElement.push(idx);
 		},
 		[OperationType.Up]: () => {
@@ -76,13 +74,11 @@ export function evaluate(
 		},
 		[OperationType.Text]: (content: any) => {
 			let elem = el();
-			elements.push(
-				makeElement(elem.self as Element, handleText(content, elem.self as Element))
-			);
+			let res = handleText(content, elem.self);
+
+			text.push([elem.self, res]);
 		},
 		[OperationType.Component]: (comp: Component<any>) => {
-			// FIXME
-			// components.push(renderComponent(arg(), {}, el()!));
 			component = comp;
 			props = {};
 		},
@@ -92,14 +88,14 @@ export function evaluate(
 				return;
 			}
 			let elem = el();
-			let current = elem.self as Element;
+			let current = elem.self;
 			if (!el) throw new Error("no element to assign attr to");
 			let name = key as string;
 			if (name.startsWith("@")) {
 				let evt = name.slice(1);
 				let listeners = current.__listeners || (current.__listeners = {});
 				let fn = val;
-				listeners[evt] = {fn, listen: evtHandler.bind(null, evt, fn)};
+				listeners[evt] = { fn, listen: evtHandler.bind(null, evt, fn) };
 				current.addEventListener(evt, listeners[evt].listen);
 				elem.props[name] = val;
 				return;
@@ -140,6 +136,7 @@ export function evaluate(
 	return {
 		rootElements: Array.from(parent.children),
 		elements,
+		text,
 		components,
 		template,
 		key: template.key,
@@ -147,32 +144,41 @@ export function evaluate(
 }
 
 export function destroy(element: Elements): void {
-	if (Array.isArray(element)) element.forEach((e) => destroy(e));
+	if (element == null) {
+		return;
+	} else if (Array.isArray(element)) element.forEach((e) => destroy(e));
 	else if (element instanceof Node || element instanceof Text)
-		element.parentNode!.removeChild(element);
+		element.isConnected && element.parentNode!.removeChild(element);
 	else destroyState(element);
 }
 
 function insertBefore(parent: Element, elements: Element[], ref: Node | null) {
 	for (let i = 0; i < elements.length; i++) {
-		console.log("insertBefore", elements[i], ref)
-		parent.insertBefore(
-			elements[i],
-			ref
-		)
+		console.log("insertBefore", elements[i], ref);
+		parent.insertBefore(elements[i], ref);
 	}
 }
 
-function handleText(content: any, parent: Element, element?: Elements): Elements {
+function handleText(
+	content: any,
+	parent: Element,
+	element?: Elements
+): Elements {
 	if (content == null || content === false) {
 		element && destroy(element);
-		return [];
+		return null;
 	} else if (Array.isArray(content)) {
 		if (!element)
 			return content.reduce((acc, c) => acc.concat(handleText(c, parent)), []);
-		// TODO: MAGIC SHIT
 
-		if (!Array.isArray(element)) element = [element];
+		if (!Array.isArray(element)) {
+			if (element && "rootElements" in element) {
+				element = [element];
+			} else {
+				destroy(element);
+				element = [];
+			}
+		}
 
 		let existing = <State[]>element;
 		let next = <Template[]>content;
@@ -181,7 +187,6 @@ function handleText(content: any, parent: Element, element?: Elements): Elements
 		let keep = [];
 
 		let skew = 0;
-
 		let alreadyDiffed = new Map();
 
 		console.log(element, content);
@@ -206,10 +211,20 @@ function handleText(content: any, parent: Element, element?: Elements): Elements
 					if (i < skewed) {
 						let offset = i - skew;
 						// skip the ones we already diffed
-						while (offset < existing.length && alreadyDiffed.get(existing[offset].key)) offset++;
+						while (
+							offset < existing.length &&
+							alreadyDiffed.get(existing[offset].key)
+						)
+							offset++;
 
 						if (j !== offset)
-							insertBefore(parent, diffed[i].rootElements, offset < existing.length ? existing[offset].rootElements[0] : null)
+							insertBefore(
+								parent,
+								diffed[i].rootElements,
+								offset < existing.length
+									? existing[offset].rootElements[0]
+									: null
+							);
 						skew++;
 					}
 					alreadyDiffed.set(key, true);
@@ -218,9 +233,11 @@ function handleText(content: any, parent: Element, element?: Elements): Elements
 					// no match found, create new
 					let state = next[i].exec();
 					diffed[i] = state;
-					insertBefore(parent, state.rootElements, i === next.length - 1
-						? null
-						: (existing[i].rootElements[0]));
+					insertBefore(
+						parent,
+						state.rootElements,
+						i >= existing.length ? null : existing[i].rootElements[0]
+					);
 				}
 			}
 		}
@@ -233,6 +250,8 @@ function handleText(content: any, parent: Element, element?: Elements): Elements
 
 		return diffed;
 	} else if (isTemplate(content)) {
+		if (Array.isArray(element) && element.length === 1) element = element[0];
+
 		if (Array.isArray(element)) {
 			return handleText([content], parent, element);
 		} else if (!element) {
@@ -276,17 +295,8 @@ export function diff(
 
 	const match = {
 		[OperationType.Text]: (idx: number, content: any) => {
-			const el = instance.elements[idx];
-			instance.elements[idx] = makeElement(
-				el.parent,
-				handleText(content, el.parent, el.self)
-			);
-
-			// if (element instanceof Node) (element as Text).data = arg();
-			//
-			// if (Array.isArray(element)) return;
-			//
-			// (element as Text).data = arg();
+			let [parent, current] = instance.text[idx];
+			instance.text[idx][1] = handleText(content, parent, current);
 		},
 		[OperationType.Component]: (idx: number) => {
 			component = instance.components[idx];
@@ -305,7 +315,7 @@ export function diff(
 				const listeners = element.__listeners || (element.__listeners = {});
 				if (listeners[evt].fn === fn) return;
 				element.removeEventListener(evt, listeners[evt].listen);
-				listeners[evt] = {fn, listen: evtHandler.bind(null, evt, fn)};
+				listeners[evt] = { fn, listen: evtHandler.bind(null, evt, fn) };
 				element.addEventListener(evt, listeners[evt].listen);
 				elem.props[name] = val;
 				return;

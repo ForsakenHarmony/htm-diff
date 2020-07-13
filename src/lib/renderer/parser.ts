@@ -40,6 +40,7 @@ export function parse(
 	let ops: Operation[] = [];
 	let diffOps: Operation[] = [];
 	let elementIdx = 0;
+	let textIdx = 0;
 
 	let buffer = "";
 	let mode = Mode.Text;
@@ -66,11 +67,11 @@ export function parse(
 				} else if (mode === Mode.Text) {
 					if (buffer) {
 						ops.push(makeOp(OperationType.Text, [buffer]));
-						elementIdx++;
+						textIdx++;
 					}
 					ops.push(makeOp(OperationType.Text, [[i - 1]]));
-					elementIdx++;
-					diffOps.push(makeOp(OperationType.Text, [elementIdx, [i - 1]]));
+					diffOps.push(makeOp(OperationType.Text, [textIdx, [i - 1]]));
+					textIdx++;
 					buffer = "";
 				} else if (mode === Mode.Attribute) {
 					throw new Error("dynamic attrs not supported");
@@ -93,7 +94,7 @@ export function parse(
 					mode = Mode.Tag;
 					if (buffer) {
 						ops.push(makeOp(OperationType.Text, [buffer]));
-						elementIdx++;
+						textIdx++;
 					}
 					buffer = "";
 				} else buffer += char;
@@ -169,11 +170,7 @@ function compile(
 		}
 	}
 
-	function exec(
-		this: Template,
-		dynamics: unknown[],
-		state?: State
-	) {
+	function exec(this: Template, dynamics: unknown[], state?: State) {
 		return state
 			? diff(this, diffOps, dynamics, state)
 			: evaluate(this, ops, dynamics);
